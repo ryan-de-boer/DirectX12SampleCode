@@ -9,7 +9,7 @@ It contains the highlighted values of worldPos:
 1.1 = CD CC 8C 3F
 1.2 = 9A 99 99 3F
 1.3 = 66 66 A6 3F
-https://github.com/ryan-de-boer/DirectX12SampleCode/blob/main/DX12_OutputStream_BzTuts4/HxDViewOfDataInHex.png
+![alt text](https://github.com/ryan-de-boer/DirectX12SampleCode/blob/main/DX12_OutputStream_BzTuts4/HxDViewOfDataInHex.png)
 
 You can use these sites to convert between hex and the float / uint values
 https://www.scadacore.com/tools/programming-calculators/online-hex-converter/
