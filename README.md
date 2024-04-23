@@ -3,3 +3,14 @@ It was posted as a question on stack overflow here: https://stackoverflow.com/qu
 
 Here is a screenshot of PIX running on the sample code and you can see it knows how to get the world transformed position in the VS output buffer.
 ![alt text](https://github.com/ryan-de-boer/DirectX12SampleCode/blob/main/DX12_OutputStream_BzTuts4/PixVSOutputShowsCorrectWorldPos.png)
+
+Here is a screenshot showing the hex values of the binary file exported from the sample.
+It contains the highlighted values of worldPos:
+1.1 = CD CC 8C 3F
+1.2 = 9A 99 99 3F
+1.3 = 66 66 A6 3F
+https://github.com/ryan-de-boer/DirectX12SampleCode/blob/main/DX12_OutputStream_BzTuts4/HxDViewOfDataInHex.png
+
+You can use these sites to convert between hex and the float / uint values
+https://www.scadacore.com/tools/programming-calculators/online-hex-converter/
+https://www.h-schmidt.net/FloatConverter/IEEE754.html
