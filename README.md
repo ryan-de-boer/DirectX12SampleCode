@@ -6,9 +6,13 @@ Here is a screenshot of PIX running on the sample code and you can see it knows 
 
 Here is a screenshot showing the hex values of the binary file exported from the sample.
 It contains the highlighted values of worldPos:
+
 1.1 = CD CC 8C 3F
+
 1.2 = 9A 99 99 3F
+
 1.3 = 66 66 A6 3F
+
 ![alt text](https://github.com/ryan-de-boer/DirectX12SampleCode/blob/main/DX12_OutputStream_BzTuts4/HxDViewOfDataInHex.png)
 
 You can use these sites to convert between hex and the float / uint values
