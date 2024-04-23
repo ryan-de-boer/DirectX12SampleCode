@@ -16,5 +16,7 @@ It contains the highlighted values of worldPos:
 ![alt text](https://github.com/ryan-de-boer/DirectX12SampleCode/blob/main/DX12_OutputStream_BzTuts4/HxDViewOfDataInHex.png)
 
 You can use these sites to convert between hex and the float / uint values
+
 https://www.scadacore.com/tools/programming-calculators/online-hex-converter/
+
 https://www.h-schmidt.net/FloatConverter/IEEE754.html
