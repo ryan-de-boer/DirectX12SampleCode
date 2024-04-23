@@ -103,3 +103,5 @@ ID3D12Resource* streamOutputBuffer; // a default buffer in GPU memory that we wi
 
 D3D12_VERTEX_BUFFER_VIEW vertexBufferView; // a structure containing a pointer to the vertex data in gpu memory
 										   // the total size of the buffer, and the size of each element (vertex)
+
+ID3D12Resource* destinationBuffer;

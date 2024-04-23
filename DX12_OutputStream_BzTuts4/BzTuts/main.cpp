@@ -1,4 +1,6 @@
 #include "stdafx.h"
+#include <iostream>
+#include <fstream>
 
 using namespace DirectX; // we will be using the directxmath library
 
@@ -636,8 +638,6 @@ void Update()
 	// update app logic, such as moving the camera or figuring out what objects are in view
 }
 
-
-
 void UpdatePipeline()
 {
 	HRESULT hr;
@@ -718,26 +718,14 @@ void UpdatePipeline()
 	// Insert the barrier into the command list
 	commandList->ResourceBarrier(1, &barrier);
 
-
-	// Define the heap properties
-	D3D12_HEAP_PROPERTIES heapProperties = {};
-	heapProperties.Type = D3D12_HEAP_TYPE_UPLOAD; // Use UPLOAD type for CPU-accessible heap
-	heapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN; // Specify CPU visibility
-	heapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN; // Use default memory pool
-
-	// Define the buffer description
-	CD3DX12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(totalBufferSize);
-
 	// Create the destination buffer in the CPU-accessible heap
-	ID3D12Resource* destinationBuffer;
 	device->CreateCommittedResource(
-		&heapProperties,                        // Heap properties
-		D3D12_HEAP_FLAG_NONE,                   // Flags
-		&bufferDesc,                            // Resource description
-		D3D12_RESOURCE_STATE_GENERIC_READ,      // Initial resource state
-		nullptr,                                // Clear value (unused for buffers)
-		IID_PPV_ARGS(&destinationBuffer)        // Destination pointer
-	);
+		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_READBACK),
+		D3D12_HEAP_FLAG_NONE,
+		&CD3DX12_RESOURCE_DESC::Buffer(totalBufferSize),
+		D3D12_RESOURCE_STATE_COPY_DEST,
+		nullptr,
+		IID_PPV_ARGS(&destinationBuffer));
 
 
 	// Calculate the size of the counter (assuming UINT64)
@@ -747,13 +735,39 @@ void UpdatePipeline()
 	const UINT totalDataSize = totalBufferSize;
 
 	// Perform the copy
-	commandList->CopyBufferRegion(
-		destinationBuffer,     // Destination buffer
-		0,                           // Destination offset
-		streamOutputBuffer,    // Source buffer
-		0,                           // Source offset
-		totalDataSize                // Size to copy
-	);
+	commandList->CopyResource(destinationBuffer, streamOutputBuffer);
+
+	// Wait for copy to complete
+	hr = commandList->Close();
+	ID3D12CommandList* ppCommandLists[] = { commandList };
+	commandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
+	hr = commandList->Reset(commandAllocator[frameIndex], pipelineStateObject);
+	
+	// Now get the binary data out!
+	byte* dataBytes = NULL;
+	hr = destinationBuffer->Map(0, NULL, reinterpret_cast<void**>(&dataBytes));
+	if (FAILED(hr))
+	{
+		OutputDebugString(L"MAP FAILED");
+	}
+	destinationBuffer->Unmap(0, NULL);
+	bool trySave = false;
+	//1.1 = CD CC 8C 3F
+	//1.2 = 9A 99 99 3F
+	//1.3 = 66 66 A6 3F
+	if (trySave)
+	{
+		trySave = false;
+		std::ofstream outfile("d:\\tmp\\binary_data.bin", std::ios::binary);
+		if (!outfile) {
+			std::cerr << "Error opening file for writing!" << std::endl;
+			return;
+		}
+		byte* data = dataBytes;
+		std::streamsize size = totalBufferSize;// particleVertices.size() * sizeof(Vertex);
+		outfile.write(reinterpret_cast<const char*>(data), size);
+		outfile.close();
+	}
 
 
 	// Map the destination buffer to CPU-accessible memory
