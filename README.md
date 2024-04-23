@@ -21,7 +21,7 @@ https://www.scadacore.com/tools/programming-calculators/online-hex-converter/
 
 https://www.h-schmidt.net/FloatConverter/IEEE754.html
 
-This code does not cover geometry shaders. If you want to learn about geometry shaders I found this code very useful. It helped me fix the vertex output stream code problem I was having.
+This code does not cover geometry shaders. If you want to learn about geometry shaders I found this rain sample code very useful. It helped me fix the vertex output stream code problem I was having.
 
 https://paminerva.github.io/docs/LearnDirectX/02.D-Simple-Rain-Effect.html
 
