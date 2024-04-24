@@ -638,6 +638,8 @@ void Update()
 	// update app logic, such as moving the camera or figuring out what objects are in view
 }
 
+void SaveVertexOutputStreamKeepCommandListOpen();
+
 void UpdatePipeline()
 {
 	HRESULT hr;
@@ -684,6 +686,9 @@ void UpdatePipeline()
 	const float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
 	commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
 
+	// Can't close your existing command list? This shows how you can keep it open.
+	SaveVertexOutputStreamKeepCommandListOpen();
+
 	// draw triangle
 	commandList->SetGraphicsRootSignature(rootSignature); // set the root signature
 	commandList->RSSetViewports(1, &viewport); // set the viewports
@@ -691,22 +696,15 @@ void UpdatePipeline()
 	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST); // set the primitive topology
 	commandList->IASetVertexBuffers(0, 1, &vertexBufferView); // set the vertex buffer (using the vertex buffer view)
 
-
 	D3D12_STREAM_OUTPUT_BUFFER_VIEW streamOutputBufferView = {};
 	streamOutputBufferView.BufferFilledSizeLocation = streamOutputBuffer->GetGPUVirtualAddress();
 	streamOutputBufferView.BufferLocation = streamOutputBufferView.BufferFilledSizeLocation + sizeof(UINT64);
 	streamOutputBufferView.SizeInBytes = bufferSize;/* Size of the buffer */;
 
-
 	// Bind the output buffer to the stream-output stage
-
 	commandList->SOSetTargets(0/* Start slot */, 1/* Number of views */, &streamOutputBufferView);
 
-
 	commandList->DrawInstanced(3, 1, 0, 0); // finally draw 3 vertices (draw the triangle)
-
-
-
 
 	// Transition the state of the source buffer to D3D12_RESOURCE_STATE_COPY_SOURCE
 	CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(
@@ -726,7 +724,6 @@ void UpdatePipeline()
 		D3D12_RESOURCE_STATE_COPY_DEST,
 		nullptr,
 		IID_PPV_ARGS(&destinationBuffer));
-
 
 	// Calculate the size of the counter (assuming UINT64)
 	const UINT counterSize = sizeof(UINT64);
@@ -769,7 +766,6 @@ void UpdatePipeline()
 		outfile.close();
 	}
 
-
 	// Map the destination buffer to CPU-accessible memory
 	UINT8* mappedData = nullptr;
 	CD3DX12_RANGE readRange(0, 0); // We'll read the entire buffer
@@ -788,9 +784,7 @@ void UpdatePipeline()
 	// Unmap the buffer
 	destinationBuffer->Unmap(0, nullptr);
 
-
 	commandList->SOSetTargets(0/* Start slot */, 0/* Number of views */, nullptr);
-
 
 	// transition the "frameIndex" render target from the render target state to the present state. If the debug layer is enabled, you will receive a
 	// warning if present is called on the render target when it's not in the present state
@@ -801,6 +795,144 @@ void UpdatePipeline()
 	{
 		Running = false;
 	}
+}
+
+// Can't close your existing command list? This shows how you can keep it open. 
+// It creates a new command list just to retrieve the data from the vertex output stream.
+void SaveVertexOutputStreamKeepCommandListOpen()
+{
+  HRESULT hr;
+  ID3D12GraphicsCommandList* tmpCommandList;
+  ID3D12CommandAllocator* tmpCommandAllocator;
+  ID3D12Resource* tmpDestinationBuffer;
+  ID3D12CommandQueue* tmpCommandQueue;
+  ID3D12Resource* tmpStreamOutputBuffer;
+
+  hr = device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&tmpCommandAllocator));
+  if (FAILED(hr))
+  {
+    return;
+  }
+
+  hr = device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, tmpCommandAllocator, pipelineStateObject, IID_PPV_ARGS(&tmpCommandList));
+  if (FAILED(hr))
+  {
+    return;
+  }
+
+  D3D12_COMMAND_QUEUE_DESC cqDesc = {};
+  cqDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
+  cqDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT; // direct means the gpu can directly execute this command queue
+  hr = device->CreateCommandQueue(&cqDesc, IID_PPV_ARGS(&tmpCommandQueue)); // create the command queue
+  if (FAILED(hr))
+  {
+    return;
+  }
+
+  D3D12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(totalBufferSize);
+  device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT)/* heap properties */,
+    D3D12_HEAP_FLAG_NONE/* heap flags */, &bufferDesc, /*D3D12_RESOURCE_STATE_STREAM_OUT*/D3D12_RESOURCE_STATE_COMMON, nullptr/* clear value */,
+    IID_PPV_ARGS(&tmpStreamOutputBuffer));
+
+  device->CreateCommittedResource(
+    &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_READBACK),
+    D3D12_HEAP_FLAG_NONE,
+    &CD3DX12_RESOURCE_DESC::Buffer(totalBufferSize),
+    D3D12_RESOURCE_STATE_COPY_DEST,
+    nullptr,
+    IID_PPV_ARGS(&tmpDestinationBuffer));
+
+  // draw triangle
+  tmpCommandList->SetGraphicsRootSignature(rootSignature); // set the root signature
+  tmpCommandList->RSSetViewports(1, &viewport); // set the viewports
+  tmpCommandList->RSSetScissorRects(1, &scissorRect); // set the scissor rects
+  tmpCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST); // set the primitive topology
+  tmpCommandList->IASetVertexBuffers(0, 1, &vertexBufferView); // set the vertex buffer (using the vertex buffer view)
+
+  D3D12_STREAM_OUTPUT_BUFFER_VIEW streamOutputBufferView = {};
+  streamOutputBufferView.BufferFilledSizeLocation = tmpStreamOutputBuffer->GetGPUVirtualAddress();
+  streamOutputBufferView.BufferLocation = streamOutputBufferView.BufferFilledSizeLocation + sizeof(UINT64);
+  streamOutputBufferView.SizeInBytes = bufferSize;/* Size of the buffer */;
+
+  // Bind the output buffer to the stream-output stage
+  tmpCommandList->SOSetTargets(0/* Start slot */, 1/* Number of views */, &streamOutputBufferView);
+
+  tmpCommandList->DrawInstanced(3, 1, 0, 0); // finally draw 3 vertices (draw the triangle)
+
+  // Transition the state of the source buffer to D3D12_RESOURCE_STATE_COPY_SOURCE
+  CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+    tmpStreamOutputBuffer,                   // Resource
+    D3D12_RESOURCE_STATE_STREAM_OUT,            // From state
+    D3D12_RESOURCE_STATE_COPY_SOURCE           // To state
+  );
+
+  // Insert the barrier into the command list
+  tmpCommandList->ResourceBarrier(1, &barrier);
+
+  // Calculate the size of the counter (assuming UINT64)
+  const UINT counterSize = sizeof(UINT64);
+
+  // Calculate the total size of the data to copy
+  const UINT totalDataSize = totalBufferSize;
+
+  // Perform the copy
+  tmpCommandList->CopyResource(tmpDestinationBuffer, tmpStreamOutputBuffer);
+
+  // Wait for copy to complete
+  hr = tmpCommandList->Close();
+  ID3D12CommandList* ppCommandLists[] = { tmpCommandList };
+  tmpCommandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
+
+  // Now get the binary data out!
+  byte* dataBytes = NULL;
+  hr = tmpDestinationBuffer->Map(0, NULL, reinterpret_cast<void**>(&dataBytes));
+  if (FAILED(hr))
+  {
+    OutputDebugString(L"MAP FAILED");
+  }
+  tmpDestinationBuffer->Unmap(0, NULL);
+  bool trySave = false;
+  //1.1 = CD CC 8C 3F
+  //1.2 = 9A 99 99 3F
+  //1.3 = 66 66 A6 3F
+  if (trySave)
+  {
+    trySave = false;
+    std::ofstream outfile("d:\\tmp\\binary_data.bin", std::ios::binary);
+    if (!outfile) {
+      std::cerr << "Error opening file for writing!" << std::endl;
+      return;
+    }
+    byte* data = dataBytes;
+    std::streamsize size = totalBufferSize;// particleVertices.size() * sizeof(Vertex);
+    outfile.write(reinterpret_cast<const char*>(data), size);
+    outfile.close();
+  }
+
+  // Clean up:
+
+  // Create a fence
+  ID3D12Fence* fence;
+  device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence));
+
+  // Signal the fence after executing command lists
+  UINT64 fenceValue = 1;
+  tmpCommandQueue->Signal(fence, fenceValue);
+
+  // Wait for the fence to reach the signaled value
+  HANDLE fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+  if (fenceEvent)
+  {
+    fence->SetEventOnCompletion(fenceValue, fenceEvent);
+    WaitForSingleObject(fenceEvent, INFINITE);
+    CloseHandle(fenceEvent);
+  }
+
+  tmpCommandList->Release();
+  tmpCommandAllocator->Release();
+  tmpCommandQueue->Release();
+  tmpStreamOutputBuffer->Release();
+  tmpDestinationBuffer->Release();
 }
 
 void Render()
